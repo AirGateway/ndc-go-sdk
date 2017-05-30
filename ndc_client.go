@@ -1,14 +1,16 @@
 package ndc
 
 import (
-  "fmt"
-  //"log"
+	"fmt"
+	"io"
+	//"log"
+	"bufio"
 	"bytes"
-  "bufio"
-  "strconv"
-  "strings"
-  "net/http"
 	"io/ioutil"
+	"net/http"
+	"strconv"
+	"strings"
+
 	"gopkg.in/yaml.v2"
 )
 
@@ -37,13 +39,15 @@ type ClientOptions struct {
 type Client struct {
 	Options         ClientOptions
 	HasTemplateVars bool
-	Extras					map[string]Extras
+	Extras          map[string]Extras
 	Config          map[string]yaml.MapSlice
 	RawConfig       []byte
 	HttpClient      *http.Client
 }
 
 type postProcess func(string)
+
+var responseDelimiter = []byte("<!-- AG-EOM -->")
 
 func NewClient(options *ClientOptions, extras map[string]Extras) (*Client, error) {
 	client := &Client{Options: *options}
@@ -130,32 +134,58 @@ func (client *Client) AppendHeaders(r *http.Request, HeadersConfig interface{}) 
 	}
 }
 func (client *Client) RequestAsynch(message Message, callback postProcess) {
+	fmt.Println("*** RequestAsynch")
 	Response := client.Request(message)
 
 	message_aux := ""
-  reader := bufio.NewReader(Response.Body)
+	reader := bufio.NewReader(Response.Body)
 	for {
 		line, err := reader.ReadBytes('\n')
-		//fmt.Println(line)
-		if err==nil {
+		if err == nil {
 			message_aux = message_aux + string(line)
-			if strings.Contains(message_aux, "<!-- AG-EOM -->"){
+			if strings.Contains(message_aux, "<!-- AG-EOM -->") {
+				// fmt.Println("*** callback", message_aux)
+				fmt.Println("*** callback")
 				callback(message_aux)
 				message_aux = ""
 			}
-		}else{fmt.Println("ERROR", err);break;}
+		} else {
+			fmt.Println("ERROR", err)
+			break
+		}
 	}
-}
-func (client *Client) RequestSynch(message Message) (string) {
-  fmt.Println( "-> Doing Request:\n---\n" )
-	Response := client.Request(message)
-	fmt.Println( "-> Receiving response:\n---\n" )
-	//fmt.Println( Response , "\n---\n-> Response body:\n---\n")
-	body_, _ := ioutil.ReadAll(Response.Body)
-	return string(body_);
+	fmt.Println("*** RequestAsynch finishes")
 }
 
-func (client *Client) Request(message Message) (*http.Response) {
+func (client *Client) RequestAsync2(message Message, responseChannel chan []byte) {
+	fmt.Println("*** RequestAsynch2")
+	response := client.Request(message)
+	reader := bufio.NewReader(response.Body)
+	buf := bytes.NewBuffer([]byte(""))
+	for {
+		ln, err := reader.ReadBytes('\n')
+		if err != nil || err == io.EOF {
+			break
+		}
+		buf.Write(ln)
+		if bytes.Contains(ln, responseDelimiter) {
+			responseChannel <- buf.Bytes()
+			buf.Reset()
+		}
+	}
+	close(responseChannel)
+}
+
+func (client *Client) RequestSynch(message Message) string {
+	fmt.Println("-> Doing Request:\n---\n")
+	Response := client.Request(message)
+	fmt.Println("-> Receiving response:\n---\n")
+	//fmt.Println( Response , "\n---\n-> Response body:\n---\n")
+	body_, _ := ioutil.ReadAll(Response.Body)
+	return string(body_)
+}
+
+func (client *Client) Request(message Message) *http.Response {
 
 	var Config, ServerConfig, RestConfig map[string]interface{}
 	//var Config, RestConfig map[string]interface{}
@@ -167,42 +197,41 @@ func (client *Client) Request(message Message) (*http.Response) {
 	if client.HasTemplateVars {
 		Config = client.PrepareConfig(message)
 	} else {
-		 //Config = client.Config
+		//Config = client.Config
 	}
 
 	//fmt.Println(Config)
-	RestConfig 		 = Config["rest"].(map[string]interface{})
-	ServerConfig 	 = Config["server"].(map[string]interface{})
-  var RequestUrl  interface {}
-  if env, ok := client.Extras["enviroment"]; ok==true{
-    RequestUrl 		= ServerConfig["url_"+env.Value["url"]]
-  }else{
-    RequestUrl    = ServerConfig["url_prod"]
-  }
+	RestConfig = Config["rest"].(map[string]interface{})
+	ServerConfig = Config["server"].(map[string]interface{})
+	var RequestUrl interface{}
+	if env, ok := client.Extras["enviroment"]; ok == true {
+		RequestUrl = ServerConfig["url_"+env.Value["url"]]
+	} else {
+		RequestUrl = ServerConfig["url_prod"]
+	}
 	RequestReader := bytes.NewReader(body)
 
-
-	Request, _ 		:= http.NewRequest("POST", RequestUrl.(string), RequestReader)
+	Request, _ := http.NewRequest("POST", RequestUrl.(string), RequestReader)
 	client.AppendHeaders(Request, RestConfig["headers"])
 	//elem, ok := client.Extras["headers"]
-	if headers, ok := client.Extras["headers"]; ok==true{
+	if headers, ok := client.Extras["headers"]; ok == true {
 		for Header, Value := range headers.Value {
 			//fmt.Println(Header, Value)
 			Request.Header.Del(Header)
 			Request.Header.Add(Header, Value)
 		}
 	}
-	Response, _ 	:= client.HttpClient.Do(Request)
+	Response, _ := client.HttpClient.Do(Request)
 
-	return Response;
+	return Response
 
 	//fmt.Println(Response.Body);
 
 }
-func convert( b []byte ) string {
-    s := make([]string,len(b))
-    for i := range b {
-        s[i] = strconv.Itoa(int(b[i]))
-    }
-    return strings.Join(s,",")
+func convert(b []byte) string {
+	s := make([]string, len(b))
+	for i := range b {
+		s[i] = strconv.Itoa(int(b[i]))
+	}
+	return strings.Join(s, ",")
 }
