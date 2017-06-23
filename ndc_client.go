@@ -3,6 +3,7 @@ package ndc
 import (
 	"fmt"
 	"io"
+	"sync"
 	//"log"
 	"bufio"
 	"bytes"
@@ -44,8 +45,6 @@ type Client struct {
 	RawConfig       []byte
 	HttpClient      *http.Client
 }
-
-type postProcess func(string)
 
 var responseDelimiter = []byte("<!-- AG-EOM -->")
 
@@ -133,8 +132,9 @@ func (client *Client) AppendHeaders(r *http.Request, HeadersConfig interface{}) 
 		r.Header.Add(Header, Value.(string))
 	}
 }
-func (client *Client) RequestAsynch(message Message, callback postProcess) {
+func (client *Client) RequestAsynch(message Message, callback func(string, *sync.WaitGroup)) {
 	fmt.Println("*** RequestAsynch")
+	var wg sync.WaitGroup
 	Response := client.Request(message)
 
 	message_aux := ""
@@ -146,7 +146,8 @@ func (client *Client) RequestAsynch(message Message, callback postProcess) {
 			if strings.Contains(message_aux, "<!-- AG-EOM -->") {
 				// fmt.Println("*** callback", message_aux)
 				fmt.Println("*** callback")
-				callback(message_aux)
+				wg.Add(1)
+				go callback(message_aux, &wg)
 				message_aux = ""
 			}
 		} else {
@@ -154,6 +155,7 @@ func (client *Client) RequestAsynch(message Message, callback postProcess) {
 			break
 		}
 	}
+	wg.Wait()
 	fmt.Println("*** RequestAsynch finishes")
 }
 
