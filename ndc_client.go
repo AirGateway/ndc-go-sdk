@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strconv"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -36,7 +37,14 @@ type Extras struct {
 type ClientOptions struct {
 	ConfigPath string
 }
-
+type AsynchArgs struct {
+	Callback func(string, AsynchArgs)
+	Out      http.ResponseWriter
+	Flusher  http.Flusher
+	WG       *sync.WaitGroup
+	InitTime time.Time
+	Limit    int
+}
 type Client struct {
 	Options         ClientOptions
 	HasTemplateVars bool
@@ -132,9 +140,9 @@ func (client *Client) AppendHeaders(r *http.Request, HeadersConfig interface{}) 
 		r.Header.Add(Header, Value.(string))
 	}
 }
-func (client *Client) RequestAsynch(message Message, callback func(string, *sync.WaitGroup)) {
+
+func (client *Client) RequestAsynch(message Message, args AsynchArgs) {
 	fmt.Println("*** RequestAsynch")
-	var wg sync.WaitGroup
 	Response := client.Request(message)
 
 	message_aux := ""
@@ -146,8 +154,8 @@ func (client *Client) RequestAsynch(message Message, callback func(string, *sync
 			if strings.Contains(message_aux, "<!-- AG-EOM -->") {
 				// fmt.Println("*** callback", message_aux)
 				fmt.Println("*** callback")
-				wg.Add(1)
-				go callback(message_aux, &wg)
+				args.WG.Add(1)
+				go args.Callback(message_aux, args)
 				message_aux = ""
 			}
 		} else {
@@ -155,7 +163,7 @@ func (client *Client) RequestAsynch(message Message, callback func(string, *sync
 			break
 		}
 	}
-	wg.Wait()
+	args.WG.Wait()
 	fmt.Println("*** RequestAsynch finishes")
 }
 
