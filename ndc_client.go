@@ -4,7 +4,9 @@ import (
 	"fmt"
 	"io"
 	"sync"
-	//"log"
+
+	"golang.org/x/net/html"
+
 	"bufio"
 	"bytes"
 	"io/ioutil"
@@ -156,6 +158,9 @@ func (client *Client) RequestAsynch(message Message, args AsynchArgs) {
 				fmt.Println("*** callback")
 				args.WG.Add(1)
 				go args.Callback(message_aux, args)
+				// debug: print response
+				fmt.Println(Prettify(message_aux, "    "))
+
 				message_aux = ""
 			}
 		} else {
@@ -192,6 +197,9 @@ func (client *Client) RequestSynch(message Message) string {
 	fmt.Println("-> Receiving response:\n---\n")
 	//fmt.Println( Response , "\n---\n-> Response body:\n---\n")
 	body_, _ := ioutil.ReadAll(Response.Body)
+	//fmt.Printf("%v\n", formatResponse(Response))
+	buf, _ := Prettify(string(body_[:]), "    ")
+	fmt.Println(buf)
 	return string(body_)
 }
 
@@ -213,15 +221,15 @@ func (client *Client) Request(message Message) *http.Response {
 	//fmt.Println(Config)
 	RestConfig = Config["rest"].(map[string]interface{})
 	ServerConfig = Config["server"].(map[string]interface{})
-	var RequestUrl interface{}
+	var RequestURL interface{}
 	if env, ok := client.Extras["enviroment"]; ok == true {
-		RequestUrl = ServerConfig["url_"+env.Value["url"]]
+		RequestURL = ServerConfig["url_"+env.Value["url"]]
 	} else {
-		RequestUrl = ServerConfig["url_prod"]
+		RequestURL = ServerConfig["url_prod"]
 	}
 	RequestReader := bytes.NewReader(body)
 
-	Request, _ := http.NewRequest("POST", RequestUrl.(string), RequestReader)
+	Request, _ := http.NewRequest("POST", RequestURL.(string), RequestReader)
 	client.AppendHeaders(Request, RestConfig["headers"])
 	//elem, ok := client.Extras["headers"]
 	if headers, ok := client.Extras["headers"]; ok == true {
@@ -231,17 +239,141 @@ func (client *Client) Request(message Message) *http.Response {
 			Request.Header.Add(Header, Value)
 		}
 	}
+	// Debug: print request
+	fmt.Printf("%v\n", formatRequest(Request))
+
 	Response, _ := client.HttpClient.Do(Request)
-
 	return Response
-
-	//fmt.Println(Response.Body);
-
 }
+
 func convert(b []byte) string {
 	s := make([]string, len(b))
 	for i := range b {
 		s[i] = strconv.Itoa(int(b[i]))
 	}
 	return strings.Join(s, ",")
+}
+
+// formatRequest generates ascii representation of a http request
+func formatRequest(r *http.Request) string {
+	// Create return string
+	var request []string
+
+	// Add the request string
+	url := fmt.Sprintf("%v %v %v", r.Method, r.URL, r.Proto)
+	request = append(request, url)
+
+	// Add the host
+	request = append(request, fmt.Sprintf("Host: %v", r.Host))
+
+	// Loop through headers
+	for name, headers := range r.Header {
+		name = strings.ToLower(name)
+		for _, h := range headers {
+			request = append(request, fmt.Sprintf("%v: %v", name, h))
+		}
+	}
+
+	// Get the request body
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("Error reading body: %v", err)
+	}
+	request = append(request, fmt.Sprintf("Body:\n%s", body))
+	// Restore body into Request
+	r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+
+	// If this is a POST, add post data
+	if r.Method == "POST" {
+		r.ParseForm()
+		request = append(request, "\n")
+		request = append(request, r.Form.Encode())
+	}
+
+	// write request end
+	request = append(request, fmt.Sprintf("**** end of request"))
+
+	// Return the request as a string
+	return strings.Join(request, "\n")
+}
+
+// formatResponse generates ascii representation of a http response
+func formatResponse(r *http.Response) string {
+	// Create return string
+	var response []string
+
+	// Add the response string
+	url := fmt.Sprintf("%v", r.Proto)
+	response = append(response, url)
+
+	// Loop through headers
+	for name, headers := range r.Header {
+		name = strings.ToLower(name)
+		for _, h := range headers {
+			response = append(response, fmt.Sprintf("%v: %v", name, h))
+		}
+	}
+
+	// Get the response body
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		fmt.Printf("Error reading body: %v", err)
+	}
+	_body, _ := Prettify(string(body[:]), "    ")
+	response = append(response, fmt.Sprintf("Body:\n%s", _body))
+
+	// Restore body into Request
+	r.Body = ioutil.NopCloser(bytes.NewBuffer(body))
+
+	// write request end
+	response = append(response, fmt.Sprintf("**** end of response"))
+
+	// Return the request as a string
+	return strings.Join(response, "\n")
+}
+
+// Prettify prints readable XML
+// From: https://stackoverflow.com/questions/21117161/go-how-would-you-pretty-print-prettify-html#23285911
+func Prettify(raw string, indent string) (pretty string, e error) {
+	r := strings.NewReader(raw)
+	z := html.NewTokenizer(r)
+	pretty = ""
+	depth := 0
+	prevToken := html.CommentToken
+	for {
+		tt := z.Next()
+		tokenString := string(z.Raw())
+
+		// strip away newlines
+		if tt == html.TextToken {
+			stripped := strings.Trim(tokenString, "\n")
+			if len(stripped) == 0 {
+				continue
+			}
+		}
+
+		if tt == html.EndTagToken {
+			depth -= 1
+		}
+
+		if tt != html.TextToken {
+			if prevToken != html.TextToken {
+				pretty += "\n"
+				for i := 0; i < depth; i++ {
+					pretty += indent
+				}
+			}
+		}
+
+		pretty += tokenString
+
+		// last token
+		if tt == html.ErrorToken {
+			break
+		} else if tt == html.StartTagToken {
+			depth += 1
+		}
+		prevToken = tt
+	}
+	return strings.Trim(pretty, "\n"), nil
 }
