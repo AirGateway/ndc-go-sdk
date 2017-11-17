@@ -40,12 +40,13 @@ type ClientOptions struct {
 	ConfigPath string
 }
 type AsynchArgs struct {
-	Callback func(string, AsynchArgs)
-	Out      http.ResponseWriter
-	Flusher  http.Flusher
-	WG       *sync.WaitGroup
-	InitTime time.Time
-	Limit    int
+	Callback       func(string, AsynchArgs)
+	HeaderCallback func(http.Header) error
+	Out            http.ResponseWriter
+	Flusher        http.Flusher
+	WG             *sync.WaitGroup
+	InitTime       time.Time
+	Limit          int
 }
 type Client struct {
 	Options         ClientOptions
@@ -146,6 +147,13 @@ func (client *Client) AppendHeaders(r *http.Request, HeadersConfig interface{}) 
 func (client *Client) RequestAsynch(message Message, args AsynchArgs) {
 	fmt.Println("*** RequestAsynch")
 	Response := client.Request(message)
+
+	// Handle NDC response headers if callback defined
+	if args.HeaderCallback != nil {
+		if err := args.HeaderCallback(Response.Header); err != nil {
+			fmt.Println("HeaderCallback error: ", err)
+		}
+	}
 
 	message_aux := ""
 	reader := bufio.NewReader(Response.Body)
