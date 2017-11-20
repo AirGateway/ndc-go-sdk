@@ -343,6 +343,9 @@ func formatResponse(r *http.Response) string {
 // Prettify prints readable XML
 // From: https://stackoverflow.com/questions/21117161/go-how-would-you-pretty-print-prettify-html#23285911
 func Prettify(raw string, indent string) (pretty string, e error) {
+	// Temporary disable Prettify as it takes too much time
+	return raw, nil
+
 	r := strings.NewReader(raw)
 	z := html.NewTokenizer(r)
 	pretty = ""
