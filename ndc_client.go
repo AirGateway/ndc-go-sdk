@@ -199,6 +199,18 @@ func (client *Client) RequestAsync2(message Message, responseChannel chan []byte
 	close(responseChannel)
 }
 
+func (client *Client) RequestSync(message Message) (string, http.Header) {
+	fmt.Println("-> Doing Request:\n---\n")
+	Response := client.Request(message)
+	fmt.Println("-> Receiving response:\n---\n")
+	//fmt.Println( Response , "\n---\n-> Response body:\n---\n")
+	body_, _ := ioutil.ReadAll(Response.Body)
+	//fmt.Printf("%v\n", formatResponse(Response))
+	buf, _ := Prettify(string(body_[:]), "    ")
+	fmt.Println(buf)
+	return string(body_), Response.Header
+}
+
 func (client *Client) RequestSynch(message Message) string {
 	fmt.Println("-> Doing Request:\n---\n")
 	Response := client.Request(message)
