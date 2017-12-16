@@ -180,6 +180,30 @@ func (client *Client) RequestAsynch(message Message, args AsynchArgs) {
 	fmt.Println("*** RequestAsynch finishes")
 }
 
+func (client *Client) RequestAsync(message Message) (*http.Response, chan []byte) {
+	fmt.Println("*** RequestAsync")
+	response := client.Request(message)
+	offersChannel := make(chan []byte)
+	go func() {
+		reader := bufio.NewReader(response.Body)
+		buf := bytes.NewBuffer([]byte(""))
+		for {
+			ln, err := reader.ReadBytes('\n')
+			if err != nil || err == io.EOF {
+				break
+			}
+			buf.Write(ln)
+			if bytes.Contains(ln, responseDelimiter) {
+				offersChannel <- buf.Bytes()
+				buf.Reset()
+			}
+		}
+		response.Body.Close()
+		close(offersChannel)
+	}()
+	return response, offersChannel
+}
+
 func (client *Client) RequestAsync2(message Message, responseChannel chan []byte) {
 	fmt.Println("*** RequestAsynch2")
 	response := client.Request(message)
