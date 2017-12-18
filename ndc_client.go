@@ -1,8 +1,10 @@
 package ndc
 
 import (
+	"context"
 	"fmt"
 	"io"
+	"log"
 	"sync"
 
 	"golang.org/x/net/html"
@@ -180,26 +182,39 @@ func (client *Client) RequestAsynch(message Message, args AsynchArgs) {
 	fmt.Println("*** RequestAsynch finishes")
 }
 
-func (client *Client) RequestAsync(message Message) (*http.Response, chan []byte) {
+func (client *Client) RequestAsync(ctx context.Context, message Message) (*http.Response, chan []byte) {
 	fmt.Println("*** RequestAsync")
 	response := client.Request(message)
 	offersChannel := make(chan []byte)
 	go func() {
+		// Make sure body closed on return
+		defer response.Body.Close()
+		// Prepare reader line by line
 		reader := bufio.NewReader(response.Body)
 		buf := bytes.NewBuffer([]byte(""))
+	For:
 		for {
-			ln, err := reader.ReadBytes('\n')
-			if err != nil || err == io.EOF {
-				break
-			}
-			buf.Write(ln)
-			if bytes.Contains(ln, responseDelimiter) {
-				offersChannel <- buf.Bytes()
-				buf.Reset()
+			select {
+			// Stop if passed context cancelled
+			case <-ctx.Done():
+				log.Println("Context Cancelled")
+				break For
+			// Handle offers
+			default:
+				ln, err := reader.ReadBytes('\n')
+				log.Printf("Next line: %s", ln)
+				if err != nil || err == io.EOF {
+					break For
+				}
+				buf.Write(ln)
+				if bytes.Contains(ln, responseDelimiter) {
+					offersChannel <- buf.Bytes()
+					buf.Reset()
+				}
 			}
 		}
-		response.Body.Close()
 		close(offersChannel)
+		return
 	}()
 	return response, offersChannel
 }
