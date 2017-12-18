@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"log"
 	"sync"
 
 	"golang.org/x/net/html"
@@ -197,12 +196,10 @@ func (client *Client) RequestAsync(ctx context.Context, message Message) (*http.
 			select {
 			// Stop if passed context cancelled
 			case <-ctx.Done():
-				log.Println("Context Cancelled")
 				break For
 			// Handle offers
 			default:
 				ln, err := reader.ReadBytes('\n')
-				log.Printf("Next line: %s", ln)
 				if err != nil || err == io.EOF {
 					break For
 				}
