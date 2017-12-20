@@ -305,7 +305,7 @@ func (client *Client) Request(message Message) *http.Response {
 
 	Response, err := client.HttpClient.Do(Request)
 	if err != nil {
-		logger.Error()
+		logger.Error(err)
 	}
 	return Response
 }
