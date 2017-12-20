@@ -184,6 +184,9 @@ func (client *Client) RequestAsynch(message Message, args AsynchArgs) {
 func (client *Client) RequestAsync(ctx context.Context, message Message) (*http.Response, chan []byte) {
 	fmt.Println("*** RequestAsync")
 	response := client.Request(message)
+	if response == nil {
+		return nil, nil
+	}
 	offersChannel := make(chan []byte)
 	go func() {
 		// Make sure body closed on return
