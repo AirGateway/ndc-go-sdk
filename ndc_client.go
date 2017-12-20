@@ -6,6 +6,7 @@ import (
 	"io"
 	"sync"
 
+	"github.com/AirGateway/ndc-go-sdk/logger"
 	"golang.org/x/net/html"
 
 	"bufio"
@@ -263,6 +264,7 @@ func (client *Client) RequestSynch(message Message) string {
 }
 
 func (client *Client) Request(message Message) *http.Response {
+	logger := logger.Get()
 
 	var Config, ServerConfig, RestConfig map[string]interface{}
 	//var Config, RestConfig map[string]interface{}
@@ -301,7 +303,10 @@ func (client *Client) Request(message Message) *http.Response {
 	// Debug: print request
 	fmt.Printf("%v\n", formatRequest(Request))
 
-	Response, _ := client.HttpClient.Do(Request)
+	Response, err := client.HttpClient.Do(Request)
+	if err != nil {
+		logger.Error()
+	}
 	return Response
 }
 
