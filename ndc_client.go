@@ -271,7 +271,10 @@ func (client *Client) Request(message Message) *http.Response {
 
 	message.Client = client
 
-	body, _ := message.Prepare()
+	body, err := message.Prepare()
+	if err != nil {
+		logger.Error(err)
+	}
 
 	if client.HasTemplateVars {
 		Config = client.PrepareConfig(message)
