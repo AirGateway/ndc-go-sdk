@@ -100,16 +100,28 @@ func MapSliceToMap(slice yaml.MapSlice, m map[string]interface{}) map[string]int
 }
 
 func (client *Client) LoadConfig() error {
+	logger := logger.Get()
+
 	config, err := ioutil.ReadFile(client.Options.ConfigPath)
+	if err != nil {
+		logger.Error(err)
+		return err
+	}
+
+	logger.Noticef("SDK config: \n%s", config)
 
 	client.RawConfig = config
 	err = yaml.Unmarshal(client.RawConfig, &client.Config)
+	if err != nil {
+		logger.Error(err)
+		return err
+	}
 
 	if ConfigHasTemplateVars(&client.RawConfig) > 0 {
 		client.HasTemplateVars = true
 	}
 
-	return err
+	return nil
 }
 
 func (client *Client) PrepareConfig(message Message) (Config map[string]interface{}) {
@@ -291,6 +303,9 @@ func (client *Client) Request(message Message) *http.Response {
 	} else {
 		RequestURL = ServerConfig["url"]
 	}
+
+	logger.Warningf("NDC endpoint - %s", RequestURL)
+
 	RequestReader := bytes.NewReader(body)
 
 	Request, _ := http.NewRequest("POST", RequestURL.(string), RequestReader)
