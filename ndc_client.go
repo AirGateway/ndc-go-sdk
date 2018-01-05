@@ -289,7 +289,7 @@ func (client *Client) Request(message Message) *http.Response {
 	if env, ok := client.Extras["enviroment"]; ok == true {
 		RequestURL = ServerConfig["url_"+env.Value["url"]]
 	} else {
-		RequestURL = ServerConfig["url_prod"]
+		RequestURL = ServerConfig["url"]
 	}
 	RequestReader := bytes.NewReader(body)
 
