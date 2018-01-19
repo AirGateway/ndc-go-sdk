@@ -61,8 +61,8 @@ type SoapConfig struct {
 
 type Params []Param
 type Param struct {
-	Key interface{}
-	Attr []xml.Attr
+	Key   interface{}
+	Attr  []xml.Attr
 	Value interface{}
 }
 
@@ -78,7 +78,6 @@ func (message *Message) GetSoapConfig() (config SoapConfig) {
 	}
 
 	var attributes yaml.MapSlice
-
 
 	for _, v := range message.Client.Config["soap"] {
 		switch v.Key {
@@ -210,6 +209,20 @@ func (message *Message) RenderNDCWrapper(enc *xml.Encoder, buf *bytes.Buffer, it
 		item = item.(yaml.MapSlice)
 		requestWrapper := xml.StartElement{
 			Name: xml.Name{"", message.Method + "RQ"},
+			Attr: []xml.Attr{
+				xml.Attr{
+					Name: xml.Name{
+						Local: "Version",
+					},
+					Value: "16.1",
+				},
+				xml.Attr{
+					Name: xml.Name{
+						Local: "PrimaryLangID",
+					},
+					Value: "es",
+				},
+			},
 		}
 		enc.EncodeToken(requestWrapper)
 	}
