@@ -156,7 +156,7 @@ func (message *Message) RenderNDCParams(enc *xml.Encoder, item interface{}, key 
 
 		switch t {
 		case "float64":
-			data = fmt.Sprintf("%.1f", item)
+			data = fmt.Sprintf("%.2f", item)
 		case "int":
 			data = fmt.Sprintf("%d", item)
 		default:
@@ -272,7 +272,7 @@ func (message *Message) RenderNDCWrapper(enc *xml.Encoder, buf *bytes.Buffer, it
 
 		switch t {
 		case "float64":
-			data = fmt.Sprintf("%.1f", item)
+			data = fmt.Sprintf("%.2f", item)
 		case "int":
 			data = fmt.Sprintf("%d", item)
 		case "ndc.Param":
