@@ -212,15 +212,27 @@ func (message *Message) RenderNDCWrapper(enc *xml.Encoder, buf *bytes.Buffer, it
 			Attr: []xml.Attr{
 				xml.Attr{
 					Name: xml.Name{
+						Local: "AltLangID",
+					},
+					Value: "EN",
+				},
+				xml.Attr{
+					Name: xml.Name{
+						Local: "PrimaryLangID",
+					},
+					Value: "EN",
+				},
+				xml.Attr{
+					Name: xml.Name{
 						Local: "Version",
 					},
 					Value: "16.1",
 				},
 				xml.Attr{
 					Name: xml.Name{
-						Local: "PrimaryLangID",
+						Local: "xmlns",
 					},
-					Value: "es",
+					Value: "http://www.iata.org/IATA/EDIST",
 				},
 			},
 		}
