@@ -209,7 +209,10 @@ func (message *Message) RenderNDCWrapper(enc *xml.Encoder, buf *bytes.Buffer, it
 		item = item.(yaml.MapSlice)
 		requestWrapper := xml.StartElement{
 			Name: xml.Name{"", message.Method + "RQ"},
-			Attr: []xml.Attr{
+		}
+		// Temporary workaround: BA ServiceList Doesn't work with attributes included
+		if message.Method != "ServiceList" {
+			requestWrapper.Attr = []xml.Attr{
 				xml.Attr{
 					Name: xml.Name{
 						Local: "AltLangID",
@@ -234,7 +237,7 @@ func (message *Message) RenderNDCWrapper(enc *xml.Encoder, buf *bytes.Buffer, it
 					},
 					Value: "http://www.iata.org/IATA/EDIST",
 				},
-			},
+			}
 		}
 		enc.EncodeToken(requestWrapper)
 	}
