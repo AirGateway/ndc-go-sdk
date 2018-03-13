@@ -308,7 +308,12 @@ func (client *Client) Request(message Message) *http.Response {
 
 	RequestReader := bytes.NewReader(body)
 
-	Request, _ := http.NewRequest("POST", RequestURL.(string), RequestReader)
+	requestURL := RequestURL.(string)
+	if message.Method != "" {
+		requestURL += "/" + message.Method
+	}
+
+	Request, _ := http.NewRequest("POST", requestURL, RequestReader)
 	client.AppendHeaders(Request, RestConfig["headers"])
 	//elem, ok := client.Extras["headers"]
 	if headers, ok := client.Extras["headers"]; ok == true {
@@ -318,6 +323,7 @@ func (client *Client) Request(message Message) *http.Response {
 			Request.Header.Add(Header, Value)
 		}
 	}
+	Request.Header.Add("AG-Provider", Request.Header.Get("AG-Providers"))
 	// Debug: print request
 	fmt.Printf("%v\n", formatRequest(Request))
 
